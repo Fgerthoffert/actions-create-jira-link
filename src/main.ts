@@ -62,7 +62,6 @@ export async function run(): Promise<void> {
           : githubIssuePayload?.node_id
     })
 
-    console.log(githubIssue)
     core.info(
       `Processing GitHub issue: ${githubIssue.repository.owner.login}/${githubIssue.repository.name}#${githubIssue.number}`
     )
