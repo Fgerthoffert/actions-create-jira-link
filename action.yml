@@ -15,7 +15,19 @@ inputs:
     description:
       'A comma separated list of Jira issues to create a link into (e.g.
       "PROJECT-1,TOOLS-2"). All these should be on the same Jira instance.'
-    required: true
+    required: false
+  github_project_field:
+    description:
+      'Name of a GitHub project field containing a comma separated list of Jira
+      issues'
+    default: 'Jira Tickets'
+    required: false
+  github_label_prefix:
+    description:
+      'Label prefix to be used for finding issues. For example if the label is
+      "jira:PROJECT-1", the prefix should be "jira:"'
+    default: 'jira:'
+    required: false
   github_issue_id:
     description:
       'When providing a GitHub Issue ID (GraphQL ID) the action will use that ID

@@ -7,6 +7,17 @@ interface GitHubRepository {
   owner: GitHubOwner
 }
 
+interface GitHubProjectItem {
+  id: string
+  type: string
+  project: {
+    title: string
+  }
+  fieldValueByName: {
+    text: string
+  }
+}
+
 interface GitHubIssue {
   id: string
   number: string
@@ -15,6 +26,16 @@ interface GitHubIssue {
   state: string
   updatedAt: string
   repository: GitHubRepository
+  projectItems: {
+    totalCount: number
+    nodes: GitHubProjectItem[]
+  }
+  labels: {
+    totalCount: number
+    nodes: {
+      name: string
+    }[]
+  }
 }
 
 interface JiraUser {

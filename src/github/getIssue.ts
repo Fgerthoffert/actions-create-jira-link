@@ -7,15 +7,17 @@ import * as core from '@actions/core'
 
 export const getIssue = async ({
   octokit,
-  issueId
+  issueId,
+  projectField
 }: {
   octokit: any
   issueId: string
+  projectField: string
 }): Promise<GitHubIssue> => {
   const graphQLResponse: any = await octokit
     .graphql(
       `
-    query issue($issueId: ID!) {
+    query issue($issueId: ID! $projectField: String!) {
       node(id: $issueId) {
         ... on Issue {
           id
@@ -23,6 +25,27 @@ export const getIssue = async ({
           title
           number
           state
+          projectItems(first: 10) {
+            totalCount
+            nodes {
+              id
+              type
+              project {
+                title
+              }
+              fieldValueByName(name: $projectField) {
+                ... on ProjectV2ItemFieldTextValue {
+                  text
+                }
+              }
+            }
+          }
+          labels(first: 20) {
+            totalCount
+            nodes {
+              name
+            }
+          }
           repository {
             name
             owner {
@@ -33,7 +56,7 @@ export const getIssue = async ({
       }
     }    
     `,
-      { issueId: issueId }
+      { issueId: issueId, projectField: projectField }
     )
     .catch((error: Error) => {
       core.error(error.message)

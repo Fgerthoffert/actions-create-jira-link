@@ -16,10 +16,6 @@ export async function run(): Promise<void> {
   try {
     const inputGithubToken = core.getInput('token')
     const inputGithubIssueId = core.getInput('github_issue_id')
-    const inputJiraKeys = core
-      .getInput('jira_issue_keys')
-      .split(',')
-      .map(key => key.trim())
 
     const octokit = github.getOctokit(inputGithubToken)
     const {
@@ -59,22 +55,71 @@ export async function run(): Promise<void> {
       issueId:
         inputGithubIssueId !== ''
           ? inputGithubIssueId
-          : githubIssuePayload?.node_id
+          : githubIssuePayload?.node_id,
+      projectField: core.getInput('github_project_field')
     })
 
     core.info(
       `Processing GitHub issue: ${githubIssue.repository.owner.login}/${githubIssue.repository.name}#${githubIssue.number}`
     )
 
-    for (const jiraKey of inputJiraKeys) {
-      await core.group(`Processing Jira Issue: ${jiraKey}`, async () => {
+    core.debug(JSON.stringify(githubIssue))
+
+    let jiraKeys: string[] = []
+    // Get the list of jira keys from the input, the issue projects and the issue labels
+    const inputJiraKeys = core
+      .getInput('jira_issue_keys')
+      .split(',')
+      .map(key => key.trim())
+
+    jiraKeys = [...jiraKeys, ...inputJiraKeys]
+
+    const labelsJiraKeys = githubIssue.labels.nodes.reduce(
+      (acc: string[], label) => {
+        if (label.name.includes(core.getInput('github_label_prefix'))) {
+          core.info(`Found Jira key in label: ${label.name}`)
+          acc.push(label.name.replace(core.getInput('github_label_prefix'), ''))
+        }
+        return acc
+      },
+      []
+    )
+    jiraKeys = [...jiraKeys, ...labelsJiraKeys]
+
+    const labelsJiraProjects = githubIssue.projectItems.nodes.reduce(
+      (acc: string[], item) => {
+        if (item.fieldValueByName !== null) {
+          core.info(
+            `Found Jira keys in project: ${item.project.title} for field: ${core.getInput('github_project_field')}`
+          )
+          acc = [
+            ...acc,
+            ...item.fieldValueByName.text.split(',').map(key => key.trim())
+          ]
+        }
+        return acc
+      },
+      []
+    )
+    jiraKeys = [...jiraKeys, ...labelsJiraProjects]
+
+    const uniqueJiraKeys = Array.from(new Set(jiraKeys))
+    core.debug(
+      `Unique Jira keys found: ${Array.from(uniqueJiraKeys).join(', ')}`
+    )
+
+    core.info(
+      `Identified a total of Jira keys: ${uniqueJiraKeys.length} (turn on debug to see the list)`
+    )
+
+    for (const [idx, jiraKey] of uniqueJiraKeys.entries()) {
+      await core.group(`Processing Jira Ticket: ${idx}`, async () => {
+        core.debug(`Ticket key: ${jiraKey}`)
         const jiraIssue = await jira.getIssue(jiraKey).catch((error: Error) => {
           core.notice(`${jiraKey} - ${error.message}`)
         })
         if (jiraIssue !== undefined) {
-          core.info(
-            `Confirmed the presence of a Jira issue with key: ${jiraIssue.key}`
-          )
+          core.info(`Confirmed the presence of a Jira ticket in remote server`)
           // Construct remote link object
           const remoteLink: JiraRemoteLink = {
             globalId: `system=${githubIssue.url}`,
@@ -109,15 +154,13 @@ export async function run(): Promise<void> {
             remoteLink
           )
           if (createRemoteLink !== undefined) {
-            core.info(
-              `Remote link created/updated in Jira issue: ${jiraIssue.key}`
-            )
+            core.info(`Remote link created/updated in the Jira ticket`)
           } else {
             core.notice(`${jiraKey} - Unable to create remote link`)
           }
         } else {
           core.info(
-            `Unable to find issue with key: ${jiraKey}, continuing with other jira tickets, if provided`
+            `Unable to find issue, continuing with other jira tickets, if provided`
           )
         }
       })
