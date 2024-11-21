@@ -1,23 +1,87 @@
-name: 'The name of your action here'
-description: 'Provide a description here'
-author: 'Your name or organization here'
+name: 'Create link in Jira Issue'
+description:
+  'This actions creates, in a Jira issue, a link to a specific GitHub issue and
+  updates its status when needed'
+author: 'fgerthoffert'
 
 # Add your action's branding here. This will appear on the GitHub Marketplace.
 branding:
-  icon: 'heart'
-  color: 'red'
+  icon: activity
+  color: green
 
 # Define your inputs here.
 inputs:
-  milliseconds:
-    description: 'Your input description here'
+  token:
+    description: 'A GitHub Personal API Token'
     required: true
-    default: '1000'
-
-# Define your outputs here.
-outputs:
-  time:
-    description: 'Your output description here'
+  jira_issue_keys:
+    description:
+      'A comma separated list of Jira issues to create a link into (e.g.
+      "PROJECT-1,TOOLS-2"). All these should be on the same Jira instance.'
+    required: false
+  github_project_field:
+    description:
+      'Name of a GitHub project field containing a comma separated list of Jira
+      issues'
+    default: 'Jira Tickets'
+    required: false
+  github_label_prefix:
+    description:
+      'Label prefix to be used for finding issues. For example if the label is
+      "jira:PROJECT-1", the prefix should be "jira:"'
+    default: 'jira:'
+    required: false
+  github_issue_id:
+    description:
+      'When providing a GitHub Issue ID (GraphQL ID) the action will use that ID
+      instead of the one provided in the event payload.'
+    required: false
+  jira_server_protocol:
+    description:
+      'Protocol to communicate with the Jira server. Default is "https".'
+    default: 'https'
+    required: false
+  jira_server_host:
+    description:
+      'The Jira server to connect to, for example "jira.somehost.com".'
+    required: true
+  jira_server_username:
+    description: 'Username to connect to the Jira server'
+    required: true
+  jira_server_password:
+    description: 'Password to connect to the Jira server'
+    required: true
+  jira_server_api_version:
+    description: 'Jira Api version. Default is "2"'
+    default: '2'
+    required: false
+  jira_server_strict_ssl:
+    description: 'Enable string SSL. Default is "true"'
+    default: true
+    required: false
+  jira_link_relationship:
+    description:
+      'Relation ship to display in the Jira issue. Default is "GitHub Issues(s)"'
+    default: 'GitHub Issue(s)'
+    required: false
+  jira_link_status_in_title:
+    description:
+      'Display the issue status in bracket next to the issue title (for example:
+      My GitHub Issue [OPEN])'
+    default: true
+    required: false
+  jira_link_icon_prefix:
+    description: 'Icon to be displayed in Jira next to the issue link (16x16px)'
+    default: 'https://github.githubassets.com/favicon.ico'
+    required: false
+  jira_link_icon_closed:
+    description: 'Icon to be displayed in Jira when the GitHub issue is closed'
+    default: 'https://img.icons8.com/flat-round/16/checkmark.png'
+    required: false
+  jira_link_icon_open:
+    description: 'Icon to be displayed in Jira when the GitHub issue is open'
+    default: 'https://img.icons8.com/ios/16/40C057/circled-dot.png'
+    required: false
 
 runs:
   using: node20

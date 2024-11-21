@@ -1,5 +1,14 @@
+/* eslint-disable  @typescript-eslint/no-unsafe-assignment */
+/* eslint-disable  @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable   @typescript-eslint/no-unsafe-argument */
+/* eslint-disable   @typescript-eslint/no-unsafe-call */
+/* eslint-disable   @typescript-eslint/no-unsafe-return */
+
 import * as core from '@actions/core'
-import { wait } from './wait'
+import * as github from '@actions/github'
+
+import { getIssue } from './github'
+import JiraApi, { JsonResponse } from 'jira-client'
 
 /**
  * The main function for the action.
@@ -7,18 +16,159 @@ import { wait } from './wait'
  */
 export async function run(): Promise<void> {
   try {
-    const ms: string = core.getInput('milliseconds')
+    const inputGithubToken = core.getInput('token')
+    const inputGithubIssueId = core.getInput('github_issue_id')
 
-    // Debug logs are only output if the `ACTIONS_STEP_DEBUG` secret is true
-    core.debug(`Waiting ${ms} milliseconds ...`)
+    const octokit = github.getOctokit(inputGithubToken)
+    const {
+      data: { login }
+    } = await octokit.rest.users.getAuthenticated()
+    core.info(`Successfully authenticated to GitHub as: ${login}`)
 
-    // Log the current timestamp, wait, then log the new timestamp
-    core.debug(new Date().toTimeString())
-    await wait(parseInt(ms, 10))
-    core.debug(new Date().toTimeString())
+    const githubIssuePayload =
+      github.context.payload.issue ?? github.context.payload.pull_request
 
-    // Set outputs for other workflow steps to use
-    core.setOutput('time', new Date().toTimeString())
+    const jira = new JiraApi({
+      protocol: core.getInput('jira_server_protocol'),
+      host: core.getInput('jira_server_host'),
+      username: core.getInput('jira_server_username'),
+      password: core.getInput('jira_server_password'),
+      apiVersion: core.getInput('jira_server_api_version'),
+      strictSSL: core.getInput('jira_server_strict_ssl') === 'true'
+    })
+    const currentUserResponse: JsonResponse | void = await jira
+      .getCurrentUser()
+      .catch((error: Error) => {
+        console.log(error)
+        core.error(
+          'Unable to connect to the server (credentials may be invalid)'
+        )
+      })
+    if (!currentUserResponse) {
+      core.error('Failed to get current user from Jira')
+    }
+    const currentUser: JiraUser = currentUserResponse as JiraUser
+    core.info(`Successfully authenticated to Jira as: ${currentUser.name}`)
+
+    // Even though we are receiving data from the issue event
+    // we're still going to rely on an API call to collect data about the issue.
+    const githubIssue: GitHubIssue = await getIssue({
+      octokit,
+      issueId:
+        inputGithubIssueId !== ''
+          ? inputGithubIssueId
+          : githubIssuePayload?.node_id,
+      projectField: core.getInput('github_project_field')
+    })
+
+    core.info(
+      `Processing GitHub issue: ${githubIssue.repository.owner.login}/${githubIssue.repository.name}#${githubIssue.number}`
+    )
+
+    core.debug(JSON.stringify(githubIssue))
+
+    let jiraKeys: string[] = []
+    // Get the list of jira keys from the input, the issue projects and the issue labels
+    const inputJiraKeys = core
+      .getInput('jira_issue_keys')
+      .split(',')
+      .map(key => key.trim())
+
+    jiraKeys = [...jiraKeys, ...inputJiraKeys]
+
+    const labelsJiraKeys = githubIssue.labels.nodes.reduce(
+      (acc: string[], label) => {
+        if (label.name.includes(core.getInput('github_label_prefix'))) {
+          core.info(`Found Jira key in label: ${label.name}`)
+          acc.push(label.name.replace(core.getInput('github_label_prefix'), ''))
+        }
+        return acc
+      },
+      []
+    )
+    jiraKeys = [...jiraKeys, ...labelsJiraKeys]
+
+    const labelsJiraProjects = githubIssue.projectItems.nodes.reduce(
+      (acc: string[], item) => {
+        if (item.fieldValueByName !== null) {
+          core.info(
+            `Found Jira keys in project: ${item.project.title} for field: ${core.getInput('github_project_field')}`
+          )
+          acc = [
+            ...acc,
+            ...item.fieldValueByName.text.split(',').map(key => key.trim())
+          ]
+        }
+        return acc
+      },
+      []
+    )
+    jiraKeys = [...jiraKeys, ...labelsJiraProjects]
+
+    const uniqueJiraKeys = Array.from(new Set(jiraKeys)).filter(
+      k => k.length >= 3
+    )
+    core.debug(
+      `Unique Jira keys found: ${Array.from(uniqueJiraKeys).join(', ')}`
+    )
+
+    core.info(
+      `Identified a total of Jira keys: ${uniqueJiraKeys.length} (turn on debug to see the list)`
+    )
+
+    for (const [idx, jiraKey] of uniqueJiraKeys.entries()) {
+      await core.group(`Processing Jira Ticket: ${idx}`, async () => {
+        core.debug(`Ticket key: ${jiraKey}`)
+        const jiraIssue = await jira.getIssue(jiraKey).catch((error: Error) => {
+          core.notice(`${jiraKey} - ${error.message}`)
+        })
+        if (jiraIssue !== undefined) {
+          core.info(`Confirmed the presence of a Jira ticket in remote server`)
+          // Construct remote link object
+          const remoteLink: JiraRemoteLink = {
+            globalId: `system=${githubIssue.url}`,
+            application: {
+              type: 'com.github',
+              name: 'GitHub'
+            },
+            relationship: core.getInput('jira_link_relationship'),
+            object: {
+              url: githubIssue.url,
+              title: `${githubIssue.repository.owner.login}/${githubIssue.repository.name}#${githubIssue.number}`,
+              summary: `${githubIssue.title}${core.getInput('jira_link_status_in_title') === 'true' ? ` [${githubIssue.state}]` : ''}`,
+              icon: {
+                url16x16: core.getInput('jira_link_icon_prefix'),
+                title: 'GitHub'
+              },
+              status: {
+                resolved: githubIssue.state === 'CLOSED',
+                icon: {
+                  url16x16:
+                    githubIssue.state === 'CLOSED'
+                      ? core.getInput('jira_link_icon_closed')
+                      : core.getInput('jira_link_icon_open'),
+                  title: `Issue ${githubIssue.state === 'CLOSED' ? 'Closed' : 'Open'}`,
+                  link: githubIssue.url
+                }
+              }
+            }
+          }
+          const createRemoteLink = await jira.createRemoteLink(
+            jiraIssue.key,
+            remoteLink
+          )
+          if (createRemoteLink !== undefined) {
+            core.info(`Remote link created/updated in the Jira ticket`)
+          } else {
+            core.notice(`${jiraKey} - Unable to create remote link`)
+          }
+        } else {
+          core.info(
+            `Unable to find issue, continuing with other jira tickets, if provided`
+          )
+        }
+      })
+    }
   } catch (error) {
     // Fail the workflow run if an error occurs
     if (error instanceof Error) core.setFailed(error.message)
