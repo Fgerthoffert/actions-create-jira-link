@@ -86179,6 +86179,8 @@ __exportStar(__nccwpck_require__(4780), exports);
 /* eslint-disable  @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable  @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable   @typescript-eslint/no-unsafe-argument */
+/* eslint-disable   @typescript-eslint/no-unsafe-call */
+/* eslint-disable   @typescript-eslint/no-unsafe-return */
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -86279,7 +86281,7 @@ async function run() {
             return acc;
         }, []);
         jiraKeys = [...jiraKeys, ...labelsJiraProjects];
-        const uniqueJiraKeys = Array.from(new Set(jiraKeys));
+        const uniqueJiraKeys = Array.from(new Set(jiraKeys)).filter(k => k.length >= 3);
         core.debug(`Unique Jira keys found: ${Array.from(uniqueJiraKeys).join(', ')}`);
         core.info(`Identified a total of Jira keys: ${uniqueJiraKeys.length} (turn on debug to see the list)`);
         for (const [idx, jiraKey] of uniqueJiraKeys.entries()) {

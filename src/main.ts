@@ -1,6 +1,8 @@
 /* eslint-disable  @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable  @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable   @typescript-eslint/no-unsafe-argument */
+/* eslint-disable   @typescript-eslint/no-unsafe-call */
+/* eslint-disable   @typescript-eslint/no-unsafe-return */
 
 import * as core from '@actions/core'
 import * as github from '@actions/github'
@@ -103,7 +105,9 @@ export async function run(): Promise<void> {
     )
     jiraKeys = [...jiraKeys, ...labelsJiraProjects]
 
-    const uniqueJiraKeys = Array.from(new Set(jiraKeys))
+    const uniqueJiraKeys = Array.from(new Set(jiraKeys)).filter(
+      k => k.length >= 3
+    )
     core.debug(
       `Unique Jira keys found: ${Array.from(uniqueJiraKeys).join(', ')}`
     )
