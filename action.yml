@@ -36,6 +36,12 @@ inputs:
       'When providing a GitHub Issue ID (GraphQL ID) the action will use that ID
       instead of the one provided in the event payload.'
     required: false
+  github_fail_issue_not_found:
+    description:
+      'Should the action fail if the GitHub issue is not found. Default is
+      "true"'
+    required: false
+    default: true
   jira_server_protocol:
     description:
       'Protocol to communicate with the Jira server. Default is "https".'

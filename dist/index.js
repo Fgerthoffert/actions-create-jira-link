@@ -86136,7 +86136,7 @@ const getIssue = async ({ octokit, issueId, projectField }) => {
     }    
     `, { issueId: issueId, projectField: projectField })
         .catch((error) => {
-        core.error(error.message);
+        core.info(`Unable to grab the issue by its ID, error is: ${error.message}`);
     });
     return graphQLResponse.node;
 };
@@ -86221,6 +86221,7 @@ async function run() {
     try {
         const inputGithubToken = core.getInput('token');
         const inputGithubIssueId = core.getInput('github_issue_id');
+        const inputGithubFailIssueNotFound = core.getInput('github_fail_issue_not_found') === 'true';
         const octokit = github.getOctokit(inputGithubToken);
         const { data: { login } } = await octokit.rest.users.getAuthenticated();
         core.info(`Successfully authenticated to GitHub as: ${login}`);
@@ -86246,13 +86247,23 @@ async function run() {
         core.info(`Successfully authenticated to Jira as: ${currentUser.name}`);
         // Even though we are receiving data from the issue event
         // we're still going to rely on an API call to collect data about the issue.
+        const issueId = inputGithubIssueId !== ''
+            ? inputGithubIssueId
+            : githubIssuePayload?.node_id;
         const githubIssue = await (0, github_1.getIssue)({
             octokit,
-            issueId: inputGithubIssueId !== ''
-                ? inputGithubIssueId
-                : githubIssuePayload?.node_id,
+            issueId: issueId,
             projectField: core.getInput('github_project_field')
         });
+        if (githubIssue === undefined) {
+            if (inputGithubFailIssueNotFound) {
+                core.error(`Unable to get an issue from GitHub with id: ${issueId}`);
+            }
+            else {
+                core.info(`Unable to get an issue from GitHub with id: ${issueId}, exiting siltently`);
+            }
+            return;
+        }
         core.info(`Processing GitHub issue: ${githubIssue.repository.owner.login}/${githubIssue.repository.name}#${githubIssue.number}`);
         core.debug(JSON.stringify(githubIssue));
         let jiraKeys = [];

@@ -18,6 +18,8 @@ export async function run(): Promise<void> {
   try {
     const inputGithubToken = core.getInput('token')
     const inputGithubIssueId = core.getInput('github_issue_id')
+    const inputGithubFailIssueNotFound =
+      core.getInput('github_fail_issue_not_found') === 'true'
 
     const octokit = github.getOctokit(inputGithubToken)
     const {
@@ -52,14 +54,27 @@ export async function run(): Promise<void> {
 
     // Even though we are receiving data from the issue event
     // we're still going to rely on an API call to collect data about the issue.
+    const issueId =
+      inputGithubIssueId !== ''
+        ? inputGithubIssueId
+        : githubIssuePayload?.node_id
+
     const githubIssue: GitHubIssue = await getIssue({
       octokit,
-      issueId:
-        inputGithubIssueId !== ''
-          ? inputGithubIssueId
-          : githubIssuePayload?.node_id,
+      issueId: issueId,
       projectField: core.getInput('github_project_field')
     })
+
+    if (githubIssue === undefined) {
+      if (inputGithubFailIssueNotFound) {
+        core.error(`Unable to get an issue from GitHub with id: ${issueId}`)
+      } else {
+        core.info(
+          `Unable to get an issue from GitHub with id: ${issueId}, exiting siltently`
+        )
+      }
+      return
+    }
 
     core.info(
       `Processing GitHub issue: ${githubIssue.repository.owner.login}/${githubIssue.repository.name}#${githubIssue.number}`

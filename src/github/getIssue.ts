@@ -59,7 +59,9 @@ export const getIssue = async ({
       { issueId: issueId, projectField: projectField }
     )
     .catch((error: Error) => {
-      core.error(error.message)
+      core.info(
+        `Unable to grab the issue by its ID, error is: ${error.message}`
+      )
     })
 
   return graphQLResponse.node
