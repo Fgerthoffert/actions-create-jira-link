@@ -86225,25 +86225,6 @@ async function run() {
         const { data: { login } } = await octokit.rest.users.getAuthenticated();
         core.info(`Successfully authenticated to GitHub as: ${login}`);
         const githubIssuePayload = github.context.payload.issue ?? github.context.payload.pull_request;
-        const jira = new jira_client_1.default({
-            protocol: core.getInput('jira_server_protocol'),
-            host: core.getInput('jira_server_host'),
-            username: core.getInput('jira_server_username'),
-            password: core.getInput('jira_server_password'),
-            apiVersion: core.getInput('jira_server_api_version'),
-            strictSSL: core.getInput('jira_server_strict_ssl') === 'true'
-        });
-        const currentUserResponse = await jira
-            .getCurrentUser()
-            .catch((error) => {
-            console.log(error);
-            core.error('Unable to connect to the server (credentials may be invalid)');
-        });
-        if (!currentUserResponse) {
-            core.error('Failed to get current user from Jira');
-        }
-        const currentUser = currentUserResponse;
-        core.info(`Successfully authenticated to Jira as: ${currentUser.name}`);
         // Even though we are receiving data from the issue event
         // we're still going to rely on an API call to collect data about the issue.
         const githubIssue = await (0, github_1.getIssue)({
@@ -86284,6 +86265,29 @@ async function run() {
         const uniqueJiraKeys = Array.from(new Set(jiraKeys)).filter(k => k.length >= 3);
         core.debug(`Unique Jira keys found: ${Array.from(uniqueJiraKeys).join(', ')}`);
         core.info(`Identified a total of Jira keys: ${uniqueJiraKeys.length} (turn on debug to see the list)`);
+        if (uniqueJiraKeys.length === 0) {
+            core.info(`No Jira keys found in the issue, skipping the remote link creation`);
+            return;
+        }
+        const jira = new jira_client_1.default({
+            protocol: core.getInput('jira_server_protocol'),
+            host: core.getInput('jira_server_host'),
+            username: core.getInput('jira_server_username'),
+            password: core.getInput('jira_server_password'),
+            apiVersion: core.getInput('jira_server_api_version'),
+            strictSSL: core.getInput('jira_server_strict_ssl') === 'true'
+        });
+        const currentUserResponse = await jira
+            .getCurrentUser()
+            .catch((error) => {
+            console.log(error);
+            core.error('Unable to connect to the server (credentials may be invalid)');
+        });
+        if (!currentUserResponse) {
+            core.error('Failed to get current user from Jira');
+        }
+        const currentUser = currentUserResponse;
+        core.info(`Successfully authenticated to Jira as: ${currentUser.name}`);
         for (const [idx, jiraKey] of uniqueJiraKeys.entries()) {
             await core.group(`Processing Jira Ticket: ${idx}`, async () => {
                 core.debug(`Ticket key: ${jiraKey}`);
