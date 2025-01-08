@@ -28,28 +28,6 @@ export async function run(): Promise<void> {
     const githubIssuePayload =
       github.context.payload.issue ?? github.context.payload.pull_request
 
-    const jira = new JiraApi({
-      protocol: core.getInput('jira_server_protocol'),
-      host: core.getInput('jira_server_host'),
-      username: core.getInput('jira_server_username'),
-      password: core.getInput('jira_server_password'),
-      apiVersion: core.getInput('jira_server_api_version'),
-      strictSSL: core.getInput('jira_server_strict_ssl') === 'true'
-    })
-    const currentUserResponse: JsonResponse | void = await jira
-      .getCurrentUser()
-      .catch((error: Error) => {
-        console.log(error)
-        core.error(
-          'Unable to connect to the server (credentials may be invalid)'
-        )
-      })
-    if (!currentUserResponse) {
-      core.error('Failed to get current user from Jira')
-    }
-    const currentUser: JiraUser = currentUserResponse as JiraUser
-    core.info(`Successfully authenticated to Jira as: ${currentUser.name}`)
-
     // Even though we are receiving data from the issue event
     // we're still going to rely on an API call to collect data about the issue.
     const githubIssue: GitHubIssue = await getIssue({
@@ -115,6 +93,35 @@ export async function run(): Promise<void> {
     core.info(
       `Identified a total of Jira keys: ${uniqueJiraKeys.length} (turn on debug to see the list)`
     )
+
+    if (uniqueJiraKeys.length === 0) {
+      core.info(
+        `No Jira keys found in the issue, skipping the remote link creation`
+      )
+      return
+    }
+
+    const jira = new JiraApi({
+      protocol: core.getInput('jira_server_protocol'),
+      host: core.getInput('jira_server_host'),
+      username: core.getInput('jira_server_username'),
+      password: core.getInput('jira_server_password'),
+      apiVersion: core.getInput('jira_server_api_version'),
+      strictSSL: core.getInput('jira_server_strict_ssl') === 'true'
+    })
+    const currentUserResponse: JsonResponse | void = await jira
+      .getCurrentUser()
+      .catch((error: Error) => {
+        console.log(error)
+        core.error(
+          'Unable to connect to the server (credentials may be invalid)'
+        )
+      })
+    if (!currentUserResponse) {
+      core.error('Failed to get current user from Jira')
+    }
+    const currentUser: JiraUser = currentUserResponse as JiraUser
+    core.info(`Successfully authenticated to Jira as: ${currentUser.name}`)
 
     for (const [idx, jiraKey] of uniqueJiraKeys.entries()) {
       await core.group(`Processing Jira Ticket: ${idx}`, async () => {
