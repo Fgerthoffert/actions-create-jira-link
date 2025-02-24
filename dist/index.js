@@ -40472,13 +40472,6 @@ class JiraApi {
 
 
   getIssue(issueIdOrKey, fields, expand) {
-    console.log(this.makeRequestHeader(this.makeAgileUri({
-      pathname: `/issue/${issueIdOrKey}`,
-      query: {
-        fields,
-        expand
-      }
-    })))
     return this.doRequest(this.makeRequestHeader(this.makeAgileUri({
       pathname: `/issue/${issueIdOrKey}`,
       query: {
