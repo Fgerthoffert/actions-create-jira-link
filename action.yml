@@ -59,6 +59,10 @@ inputs:
     description: 'Enable string SSL. Default is "true"'
     default: true
     required: false
+  jira_intermediate_path:
+    description: 'Specify a different intermediate path'
+    default: '/rest/agile/1.0'
+    required: false
   jira_link_relationship:
     description:
       'Relation ship to display in the Jira issue. Default is "GitHub Issues(s)"'
