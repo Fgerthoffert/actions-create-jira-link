@@ -40472,6 +40472,13 @@ class JiraApi {
 
 
   getIssue(issueIdOrKey, fields, expand) {
+    console.log(this.makeRequestHeader(this.makeAgileUri({
+      pathname: `/issue/${issueIdOrKey}`,
+      query: {
+        fields,
+        expand
+      }
+    })))
     return this.doRequest(this.makeRequestHeader(this.makeAgileUri({
       pathname: `/issue/${issueIdOrKey}`,
       query: {
@@ -86275,7 +86282,8 @@ async function run() {
             username: core.getInput('jira_server_username'),
             password: core.getInput('jira_server_password'),
             apiVersion: core.getInput('jira_server_api_version'),
-            strictSSL: core.getInput('jira_server_strict_ssl') === 'true'
+            strictSSL: core.getInput('jira_server_strict_ssl') === 'true',
+            intermediatePath: core.getInput('jira_intermediate_path')
         });
         const currentUserResponse = await jira
             .getCurrentUser()
