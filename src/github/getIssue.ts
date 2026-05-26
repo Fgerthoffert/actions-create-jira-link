@@ -25,6 +25,21 @@ export const getIssue = async ({
           title
           number
           state
+          issueFieldValues(first: 10) {
+            nodes {
+              __typename
+              ... on IssueFieldTextValue {
+                id
+                value
+                field {
+                  __typename
+                  ... on IssueFieldText {
+                    name
+                  }
+                }
+              }					
+            }
+          }
           projectItems(first: 10) {
             totalCount
             nodes {
